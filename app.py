@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 # ⚠️ OVO MORA BITI PRVI st.* POZIV U APP-U
 st.set_page_config(
     page_title="MEVA - Alati",
+    page_icon="images/me.png",   # ← tu promijeniš ikonu
     layout="wide",
 )
 
