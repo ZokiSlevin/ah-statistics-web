@@ -70,15 +70,26 @@ def parse_timestamp(ts_str: str) -> datetime:
 
 
 def list_data_files():
+    """
+    Vraća samo datoteke za AH Statistiku:
+    - log*.json
+    - log*.csv
+    (ignorira *_statistika.csv koje koristi VIN modul)
+    """
     files = []
     if os.path.isdir(DATA_DIR):
         for fname in sorted(os.listdir(DATA_DIR)):
             path = os.path.join(DATA_DIR, fname)
             if not os.path.isfile(path):
                 continue
+
+            name_lower = fname.lower()
             ext = os.path.splitext(fname)[1].lower()
-            if ext in (".json", ".csv"):
+
+            # uzmi samo log datoteke
+            if name_lower.startswith("log") and ext in (".json", ".csv"):
                 files.append(fname)
+
     return files
 
 
@@ -327,31 +338,42 @@ def load_stat_data():
 def check_password():
     """Jednostavna login forma, vraća True ako je korisnik ulogiran."""
 
+    # ako smo već ulogirani, preskoči login formu
     if st.session_state.get("authenticated"):
         return True
 
-    auth_conf = st.secrets.get("auth", {})
-    valid_username = auth_conf.get("username")
-    valid_password = auth_conf.get("password")
-
-    if not valid_username or not valid_password:
+    # pokušaj čitanja iz secrets; ako nema, fallback na admin/admin
+    try:
+        auth_conf = st.secrets["auth"]
+        valid_username = auth_conf.get("username")
+        valid_password = auth_conf.get("password")
+    except Exception:
         valid_username = "admin"
         valid_password = "admin"
 
-    st.markdown("### 🔐 Prijava")
+    # FORM = omogućuje Enter za submit
+    with st.form("login_form", clear_on_submit=False):
+        st.markdown("### 🔐 Prijava")
 
-    username = st.text_input("Korisničko ime")
-    password = st.text_input("Lozinka", type="password")
-    login_btn = st.button("Prijavi se")
+        username = st.text_input("Korisničko ime", key="login_username")
+        password = st.text_input("Lozinka", type="password", key="login_password")
+        submitted = st.form_submit_button("Prijavi se")
 
-    if login_btn:
+    if submitted:
         if username == valid_username and password == valid_password:
             st.session_state["authenticated"] = True
             st.success("Uspješna prijava.")
+
+            # odmah napravimo rerun da nestane login blok
+            try:
+                st.rerun()              # noviji Streamlit
+            except Exception:
+                st.experimental_rerun()  # fallback za starije verzije
         else:
             st.error("Neispravno korisničko ime ili lozinka.")
 
-    return st.session_state.get("authenticated", False)
+    # dok se uspješno ne ulogira, vraća False
+    return False
 
 # ---------------------------------------------------------
 # HEADER-I ZA DVA MODULA
@@ -362,7 +384,7 @@ def render_header_stats():
 
     with col_left:
         if os.path.exists(LOGO_ME):
-            st.image(LOGO_ME, use_container_width=True)
+            st.image(LOGO_ME, width="stretch")
 
     with col_center:
         st.markdown(
@@ -381,7 +403,7 @@ def render_header_stats():
 
     with col_right:
         if os.path.exists(LOGO_AH):
-            st.image(LOGO_AH, use_container_width=True)
+            st.image(LOGO_AH, width="stretch")
 
 
 def render_header_vin():
@@ -389,7 +411,7 @@ def render_header_vin():
 
     with col_left:
         if os.path.exists(LOGO_ME):
-            st.image(LOGO_ME, use_container_width=True)
+            st.image(LOGO_ME, width="stretch")
         else:
             st.write("")
 
@@ -482,7 +504,7 @@ def run_stats_module():
             st.info("Nema zapisa za zadane kriterije.")
         else:
             st.write("Prvih 200 zapisa:")
-            st.dataframe(export_rows[:200], use_container_width=True)
+            st.dataframe(export_rows[:200], width="stretch")
 
             excel_bytes = make_excel_bytes(export_rows)
 
@@ -652,10 +674,10 @@ def run_vin_module():
     st.session_state.last_vin = st.session_state.vin_input
 
     with col2:
-        search_clicked = st.button("🔍 Pretraži", use_container_width=True, key="search_vin")
+        search_clicked = st.button("🔍 Pretraži", width="stretch", key="search_vin")
 
     with col3:
-        clear_clicked = st.button("🧹 Očisti", use_container_width=True, key="clear_vin")
+        clear_clicked = st.button("🧹 Očisti", width="stretch", key="clear_vin")
 
     if clear_clicked:
         st.session_state.vin_input = ""
@@ -698,9 +720,9 @@ def run_vin_module():
                 if "YEAR" in sub.columns:
                     sub = sub.drop(columns=["YEAR"])
 
-                st.dataframe(sub, use_container_width=True)
+                st.dataframe(sub, width="stretch")
         else:
-            st.dataframe(results, use_container_width=True)
+            st.dataframe(results, width="stretch")
     else:
         st.info("Unesi VIN broj i klikni **Pretraži**.")
 
@@ -717,9 +739,10 @@ def main():
     st.sidebar.markdown("### Odaberi modul")
 
     module = st.sidebar.radio(
-        "",
+        "Odaberi modul",  # neka normalna labela
         ("MEVA - AH Statistika", "MEVA - Pretraga VIN brojeva"),
         key="selected_module",
+        label_visibility="collapsed",  # ako ne želiš da se labela vidi
     )
 
     # kratak opis ispod radio gumba
@@ -749,3 +772,6 @@ def main():
         run_stats_module()
     else:
         run_vin_module()
+
+if __name__ == "__main__":
+    main()
