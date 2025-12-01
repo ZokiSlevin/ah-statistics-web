@@ -1,0 +1,15 @@
+# Python / virtual env
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Streamlit cache
+.streamlit/
+
+# Veliki/privatni logovi (ako ostavljas original negdje)
+data/log_original.json
+
+# OS junk
+.DS_Store
+Thumbs.db
